@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salary Scanner</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body{
+font-family:Arial;
+padding:40px;
+background:#f5f5f5;
+}
+
+.box{
+background:white;
+padding:30px;
+border-radius:10px;
+max-width:700px;
+margin:auto;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+button{
+padding:10px 20px;
+background:#1F4E79;
+color:white;
+border:none;
+border-radius:5px;
+cursor:pointer;
+margin-top:10px;
+}
+
+table{
+width:100%;
+margin-top:20px;
+border-collapse:collapse;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:10px;
+text-align:left;
+}
+
+th{
+background:#1F4E79;
+color:white;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+
+<h2>Salary PDF Scanner</h2>
+
+<input type="file" id="pdfs" multiple accept=".pdf">
+
+<br>
+
+<button onclick="scanPDFs()">Scan PDFs</button>
+
+<button onclick="downloadExcel()">Download Excel</button>
+
+<div id="status"></div>
+
+<table id="table">
+<thead>
+<tr>
+<th>File</th>
+<th>Pages</th>
+<th>Text Length</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+</div>
+
+<script>
+
+let results=[];
+
+async function extractText(file){
+
+const buffer=await file.arrayBuffer();
+
+const pdf=await pdfjsLib.getDocument({
+data:new Uint8Array(buffer)
+}).promise;
+
+let text='';
+
+for(let i=1;i<=pdf.numPages;i++){
+
+const page=await pdf.getPage(i);
+
+const content=await page.getTextContent();
+
+const strings=content.items.map(item=>item.str);
+
+text+=strings.join(' ')+' ';
+}
+
+return {
+pages:pdf.numPages,
+text:text
+};
+}
+
+async function scanPDFs(){
+
+results=[];
+
+const files=document.getElementById('pdfs').files;
+
+const tbody=document.querySelector('#table tbody');
+
+tbody.innerHTML='';
+
+for(const file of files){
+
+try{
+
+document.getElementById('status').innerHTML=
+'Scanning '+file.name;
+
+const data=await extractText(file);
+
+results.push({
+file:file.name,
+pages:data.pages,
+length:data.text.length
+});
+
+tbody.innerHTML+=`
+<tr>
+<td>${file.name}</td>
+<td>${data.pages}</td>
+<td>${data.text.length}</td>
+</tr>
+`;
+
+}catch(err){
+
+tbody.innerHTML+=`
+<tr>
+<td>${file.name}</td>
+<td colspan="2" style="color:red;">
+ERROR: ${err.message}
+</td>
+</tr>
+`;
+
+}
+}
+
+document.getElementById('status').innerHTML=
+'Completed';
+}
+
+function downloadExcel(){
+
+if(!results.length){
+alert('No data');
+return;
+}
+
+const ws=XLSX.utils.json_to_sheet(results);
+
+const wb=XLSX.utils.book_new();
+
+XLSX.utils.book_append_sheet(wb,ws,'Salary');
+
+XLSX.writeFile(wb,'salary.xlsx');
+}
+
+</script>
+
+</body>
+</html>
